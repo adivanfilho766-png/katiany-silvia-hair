@@ -95,7 +95,8 @@ export interface Appointment {
   notes?: string;
   createdAt: string;
   serviceNames: string[];
-  serviceIds?: string[];
+  serviceIds?: (string | null)[];
+  serviceDurations?: number[];
   internalNotes?: string;
 }
 

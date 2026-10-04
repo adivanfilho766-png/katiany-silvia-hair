@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { SalonServiceError } from "@/lib/services/salon-service";
+import { SalonRepositoryError } from "@/lib/repositories/salon-repository";
 
 export function apiError(error: unknown) {
-  if (error instanceof SalonServiceError) {
+  if (error instanceof SalonServiceError || error instanceof SalonRepositoryError) {
     return NextResponse.json({ message: error.message }, { status: error.status });
   }
 

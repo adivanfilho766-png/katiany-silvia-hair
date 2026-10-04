@@ -55,11 +55,11 @@ function displayPhone(normalized: string) {
 }
 
 function validateTime(value: unknown, label: string) {
-  if (typeof value !== "string" || !/^([01]\d|2[0-3]):[0-5]\d$/.test(value)) {
+  if (typeof value !== "string" || !/^([01]\d|2[0-3]):[0-5]\d(?::00)?$/.test(value)) {
     throw new SalonServiceError(`${label} precisa estar no formato HH:MM.`);
   }
 
-  return value;
+  return value.slice(0, 5);
 }
 
 function timeToMinutes(value: string) {
@@ -434,6 +434,19 @@ export function getAvailableTimes(data: SalonData, dateValue: string, serviceIds
     .sort((left, right) => timeToMinutes(left) - timeToMinutes(right));
 }
 
+export async function getPublicAvailableTimes(dateValue: unknown, requestedServiceIds: unknown) {
+  const date = validateDate(dateValue);
+  const serviceIds = Array.isArray(requestedServiceIds)
+    ? requestedServiceIds.filter((serviceId): serviceId is string => typeof serviceId === "string")
+    : [];
+
+  if (!serviceIds.length || new Set(serviceIds).size !== serviceIds.length) {
+    throw new SalonServiceError("Selecione serviços válidos.");
+  }
+
+  return getSalonRepository().getAvailableTimes(date, serviceIds);
+}
+
 export async function createAppointment(input: {
   customerName?: unknown;
   customerWhatsapp?: unknown;
@@ -448,36 +461,19 @@ export async function createAppointment(input: {
   const startTime = validateTime(input.startTime, "Horário");
   const serviceIds = Array.isArray(input.serviceIds) ? input.serviceIds.filter((id): id is string => typeof id === "string") : [];
   const notes = typeof input.notes === "string" ? input.notes.trim().slice(0, 1000) : "";
-  let created: Appointment | undefined;
 
-  await getSalonRepository().update((data) => {
-    const duration = getServiceDuration(data, serviceIds);
+  if (!serviceIds.length || new Set(serviceIds).size !== serviceIds.length) {
+    throw new SalonServiceError("Selecione serviços válidos.");
+  }
 
-    if (!getAvailableTimes(data, appointmentDate, serviceIds).includes(startTime)) {
-      throw new SalonServiceError("Esse horário não está mais disponível. Escolha outro.", 409);
-    }
-
-    const selectedServices = serviceIds.map((id) => data.services.find((service) => service.id === id)!);
-    created = {
-      id: randomUUID(),
-      customerName,
-      customerWhatsapp,
-      appointmentDate,
-      startTime,
-      endTime: minutesToTime(timeToMinutes(startTime) + duration),
-      status: "PENDING",
-      notes,
-      createdAt: new Date().toISOString(),
-      serviceNames: selectedServices.map((service) => service.name),
-      serviceIds,
-      internalNotes: "",
-    };
-
-    return { ...data, appointments: [...data.appointments, created] };
+  return getSalonRepository().createAppointment({
+    customerName,
+    customerWhatsapp,
+    appointmentDate,
+    startTime,
+    serviceIds,
+    notes,
   });
-
-  if (!created) throw new SalonServiceError("Não foi possível criar o agendamento.", 500);
-  return created;
 }
 
 export async function updateAppointment(id: string, input: {
@@ -509,9 +505,15 @@ export async function updateAppointment(id: string, input: {
     } else if (action === "RESCHEDULE" && (current.status === "PENDING" || current.status === "CONFIRMED" || current.status === "CANCELLED")) {
       const appointmentDate = validateDate(input.appointmentDate);
       const startTime = validateTime(input.startTime, "Horário");
-      const serviceIds = current.serviceIds?.length
-        ? current.serviceIds
+      const linkedServiceIds = current.serviceIds?.filter((serviceId): serviceId is string => typeof serviceId === "string") ?? [];
+      const serviceIds = linkedServiceIds.length
+        ? linkedServiceIds
         : data.services.filter((service) => current.serviceNames.includes(service.name)).map((service) => service.id);
+
+      if (serviceIds.length !== current.serviceNames.length) {
+        throw new SalonServiceError("Um dos serviços deste agendamento não está mais disponível para reagendamento.", 409);
+      }
+
       const duration = serviceIds.reduce((sum, serviceId) => sum + (data.services.find((service) => service.id === serviceId)?.estimatedDurationMinutes ?? 0), 0);
 
       if (!getAvailableTimes(data, appointmentDate, serviceIds, id).includes(startTime)) {
