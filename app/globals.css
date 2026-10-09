@@ -1417,3 +1417,22 @@ img {
     padding: 1.1rem;
   }
 }
+.admin-sidebar-actions {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: auto;
+}
+
+.admin-install-button {
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .admin-sidebar-actions {
+    width: 100%;
+  }
+
+  .admin-install-button {
+    width: 100%;
+  }
+}
