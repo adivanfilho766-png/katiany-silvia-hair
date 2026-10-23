@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import type { ReactNode } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import PwaRegister from "./pwa-register";
 import "./globals.css";
@@ -18,14 +19,17 @@ export const metadata: Metadata = {
   description:
     "Site de agendamento e apresentação do salão Katiany Silvia Hair.",
   applicationName: "Katiany Silvia Hair",
+
   appleWebApp: {
     capable: true,
     title: "Katiany Silvia Hair",
     statusBarStyle: "default",
   },
+
   formatDetection: {
     telephone: true,
   },
+
   icons: {
     icon: [
       {
@@ -39,6 +43,7 @@ export const metadata: Metadata = {
         type: "image/png",
       },
     ],
+
     apple: [
       {
         url: "/icons/apple-touch-icon.png",
@@ -58,7 +63,9 @@ export const viewport: Viewport = {
 
 export default function RootLayout({
   children,
-}: LayoutProps<"/">) {
+}: Readonly<{
+  children: ReactNode;
+}>) {
   return (
     <html
       lang="pt-BR"
